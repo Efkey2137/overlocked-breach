@@ -4,10 +4,11 @@ import GameStats from './components/GameStats';
 import Instructions from './components/Instructions';
 import GameOver from './components/GameOver';
 import GameBoard from './components/GameBoard';
+import DirectionalControls from './components/DirectionalControls';
 
 // Game constants
 const GRID_SIZE = 15;
-const CELL_SIZE = 40;
+const CELL_SIZE = 40; // Base cell size, will be adjusted responsively
 
 export default function ShadowRunPage() {
   // Generate simple walls
@@ -64,30 +65,84 @@ export default function ShadowRunPage() {
   const [pointsCollected, setPointsCollected] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [lastMoveDirection, setLastMoveDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
+  
+  // Prevent context menu (right-click) on the entire game
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
+    };
+    
+    document.addEventListener('contextmenu', handleContextMenu);
+    
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+  
+  // Prevent touch selection highlighting
+  useEffect(() => {
+    // Add global styles to prevent selection
+    const style = document.createElement('style');
+    style.innerHTML = `
+      body, html {
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      * {
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   
   // Movement with collision detection
   const handleMovement = useCallback((e: KeyboardEvent) => {
     const key = e.key.toLowerCase();
     setPlayer(prev => {
       const newPos = { ...prev };
+      let direction: 'up' | 'down' | 'left' | 'right' | null = null;
+      
       switch (key) {
         case 'arrowup':
         case 'w':
           newPos.y = Math.max(0, prev.y - 1);
+          direction = 'up';
           break;
         case 'arrowdown':
         case 's':
           newPos.y = Math.min(GRID_SIZE - 1, prev.y + 1);
+          direction = 'down';
           break;
         case 'arrowleft':
         case 'a':
           newPos.x = Math.max(0, prev.x - 1);
+          direction = 'left';
           break;
         case 'arrowright':
         case 'd':
           newPos.x = Math.min(GRID_SIZE - 1, prev.x + 1);
+          direction = 'right';
           break;
       }
+      
+      // Update last move direction for highlighting
+      setLastMoveDirection(direction);
       
       // Check for collision
       const finalPos = isColliding(newPos) ? prev : newPos;
@@ -103,6 +158,19 @@ export default function ShadowRunPage() {
       return finalPos;
     });
   }, [mysteryPoint, isColliding, getRandomPosition]);
+  
+  // Handle direct control from buttons
+  const handleDirectionalControl = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+    const keyMap = {
+      'up': 'ArrowUp',
+      'down': 'ArrowDown',
+      'left': 'ArrowLeft',
+      'right': 'ArrowRight'
+    };
+    
+    const event = new KeyboardEvent('keydown', { key: keyMap[direction] });
+    handleMovement(event);
+  }, [handleMovement]);
   
   // Set up keyboard listener
   useEffect(() => {
@@ -143,15 +211,32 @@ export default function ShadowRunPage() {
     setIsGameOver(false);
   }, [getRandomPosition]);
 
+  // Add selection prevention classes globally
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-8">
-      <h1 className='text-4xl font-bold text-center mb-8'>Overlocked Breach</h1>
+    <main className="min-h-screen bg-gray-900 text-white p-4 flex flex-col select-none">
+      <h1 className='text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 select-none'>Overlocked Breach</h1>
       
-      {/* Game Stats */}
-      <GameStats score={score} timeLeft={timeLeft} pointsCollected={pointsCollected} />
+      {/* Game Stats - more compact on mobile */}
+      <div className="mb-2 sm:mb-4 select-none">
+        <GameStats score={score} timeLeft={timeLeft} pointsCollected={pointsCollected} />
+      </div>
       
-      {/* Game Board */}
-      <GameBoard player={player} mysteryPoint={mysteryPoint} walls={walls} cellSize={CELL_SIZE} />
+      {/* Responsive layout switching */}
+      <div className="flex-1 flex flex-col lg:flex-row items-center justify-center select-none">
+        {/* Game Board - centered and responsive */}
+        <div className="mb-4 lg:mb-0 select-none">
+          <GameBoard player={player} mysteryPoint={mysteryPoint} walls={walls} cellSize={CELL_SIZE} />
+        </div>
+        
+        {/* Controls - changes position based on screen size */}
+        <div className="lg:ml-6 mt-2 lg:mt-0 select-none">
+          <DirectionalControls 
+            onMove={handleDirectionalControl}
+            currentDirection={lastMoveDirection}
+            layout={window.innerWidth >= 1024 ? 'horizontal' : 'vertical'}
+          />
+        </div>
+      </div>
       
       {/* Instructions */}
       <Instructions showInstructions={showInstructions} onStartGame={handleStartGame} />
