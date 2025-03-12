@@ -27,27 +27,38 @@ export default function ShadowRunPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Generate simple walls
+  // Generate random walls
   const walls = useMemo(() => {
-    // Simplified maze generation just for walls around the edges
     const mazeWalls = [];
     
-    // Horizontal walls
+    // Horizontal walls (border)
     for (let x = 0; x < GRID_SIZE; x++) {
       mazeWalls.push({ x, y: 0, w: 1, h: 1 });  // Top wall
       mazeWalls.push({ x, y: GRID_SIZE-1, w: 1, h: 1 });  // Bottom wall
     }
     
-    // Vertical walls
+    // Vertical walls (border)
     for (let y = 0; y < GRID_SIZE; y++) {
       mazeWalls.push({ x: 0, y, w: 1, h: 1 });  // Left wall
       mazeWalls.push({ x: GRID_SIZE-1, y, w: 1, h: 1 });  // Right wall
     }
     
-    // Add some internal walls
-    mazeWalls.push({ x: 3, y: 3, w: 1, h: 3 });
-    mazeWalls.push({ x: 6, y: 5, w: 3, h: 1 });
-    mazeWalls.push({ x: 9, y: 7, w: 1, h: 4 });
+    // Generate random internal walls
+    const numberOfWalls = Math.floor(Math.random() * 6) + 4; // 4-10 random walls
+    
+    for (let i = 0; i < numberOfWalls; i++) {
+      const x = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2; // Keep away from borders
+      const y = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2;
+      const isHorizontal = Math.random() > 0.5;
+      
+      if (isHorizontal) {
+        const width = Math.floor(Math.random() * 3) + 2; // Width between 2-4
+        mazeWalls.push({ x, y, w: width, h: 1 });
+      } else {
+        const height = Math.floor(Math.random() * 3) + 2; // Height between 2-4
+        mazeWalls.push({ x, y, w: 1, h: height });
+      }
+    }
     
     return mazeWalls;
   }, []);
