@@ -11,6 +11,22 @@ const GRID_SIZE = 15;
 const CELL_SIZE = 40; // Base cell size, will be adjusted responsively
 
 export default function ShadowRunPage() {
+  // Add state for tracking window width
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+  
+  // Check window width on client-side only
+  useEffect(() => {
+    // This runs only in the browser
+    setIsLargeScreen(window.innerWidth >= 1024);
+    
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   // Generate simple walls
   const walls = useMemo(() => {
     // Simplified maze generation just for walls around the edges
@@ -66,8 +82,6 @@ export default function ShadowRunPage() {
   const [showInstructions, setShowInstructions] = useState(true);
   const [isGameOver, setIsGameOver] = useState(false);
   const [lastMoveDirection, setLastMoveDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
-  const [screenWidth, setScreenWidth] = useState(1024); // Domyślnie desktop
-
   
   // Prevent context menu (right-click) on the entire game
   useEffect(() => {
@@ -174,15 +188,6 @@ export default function ShadowRunPage() {
     handleMovement(event);
   }, [handleMovement]);
   
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const updateWidth = () => setScreenWidth(window.innerWidth);
-      updateWidth(); // Ustaw na start
-      window.addEventListener("resize", updateWidth);
-      return () => window.removeEventListener("resize", updateWidth);
-    }
-  }, []);
-
   // Set up keyboard listener
   useEffect(() => {
     if (!showInstructions && !isGameOver) {
@@ -226,23 +231,34 @@ export default function ShadowRunPage() {
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 flex flex-col select-none">
       <h1 className='text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 select-none'>Overlocked Breach</h1>
-
+      
+      {/* Game Stats - more compact on mobile */}
+      <div className="mb-2 sm:mb-4 select-none">
+        <GameStats score={score} timeLeft={timeLeft} pointsCollected={pointsCollected} />
+      </div>
+      
+      {/* Responsive layout switching */}
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center select-none">
+        {/* Game Board - centered and responsive */}
         <div className="mb-4 lg:mb-0 select-none">
-          <GameBoard player={{ x: 1, y: 1 }} mysteryPoint={{ x: 10, y: 10 }} walls={[]} cellSize={CELL_SIZE} />
+          <GameBoard player={player} mysteryPoint={mysteryPoint} walls={walls} cellSize={CELL_SIZE} />
         </div>
-
+        
+        {/* Controls - changes position based on screen size */}
         <div className="lg:ml-6 mt-2 lg:mt-0 select-none">
           <DirectionalControls 
-            onMove={() => {}} 
-            currentDirection={null} 
-            layout={screenWidth >= 1024 ? 'horizontal' : 'vertical'} // ✅ Używamy screenWidth zamiast window.innerWidth
+            onMove={handleDirectionalControl}
+            currentDirection={lastMoveDirection}
+            layout={isLargeScreen ? 'horizontal' : 'vertical'}
           />
         </div>
       </div>
-
-      <Instructions showInstructions={true} onStartGame={() => {}} />
-      <GameOver isGameOver={false} score={0} pointsCollected={0} onPlayAgain={() => {}} />
+      
+      {/* Instructions */}
+      <Instructions showInstructions={showInstructions} onStartGame={handleStartGame} />
+      
+      {/* Game Over */}
+      <GameOver isGameOver={isGameOver} score={score} pointsCollected={pointsCollected} onPlayAgain={handlePlayAgain} />
     </main>
   );
 }
