@@ -1,15 +1,17 @@
+// GameBoard.tsx
 import React from 'react';
+import Wall from './Wall'; // Import the Wall component
 
 interface GameBoardProps {
-    player: {x: number, y: number},
-    mysteryPoint: {x: number, y: number},
-    walls: {x: number, y: number, w: number, h: number}[],
-    cellSize: number,
+    player: { x: number; y: number };
+    mysteryPoint: { x: number; y: number };
+    walls: { x: number; y: number; w: number; h: number }[];
+    cellSize: number;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cellSize }) => {
     return (
-        <div 
+        <div
             className="relative mx-auto border-2 border-gray-700"
             style={{
                 width: 15 * cellSize,
@@ -18,19 +20,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cell
         >
             {/* Walls */}
             {walls.map((wall, index) => (
-                <div
+                <Wall
                     key={index}
-                    className="absolute bg-gray-700"
-                    style={{
-                        left: wall.x * cellSize,
-                        top: wall.y * cellSize,
-                        width: wall.w * cellSize,
-                        height: wall.h * cellSize,
-                    }}
+                    x={wall.x}
+                    y={wall.y}
+                    width={wall.w}
+                    height={wall.h}
+                    cellSize={cellSize}
                 />
             ))}
             {/* Player */}
-            <div 
+            <div
                 className="absolute bg-blue-500 rounded-full transition-all duration-200"
                 style={{
                     width: cellSize - 4,
@@ -40,7 +40,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cell
                 }}
             />
             {/* Mystery Point */}
-            <div 
+            <div
                 className="absolute bg-yellow-500 rounded-full transition-all duration-200"
                 style={{
                     width: cellSize - 4,
@@ -51,6 +51,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cell
             />
         </div>
     );
-}
+};
 
 export default GameBoard;
