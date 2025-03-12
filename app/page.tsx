@@ -1,103 +1,196 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import GameBoard from './components/GameBoard';
+import GameStats from './components/GameStats';
+import Instructions from './components/Instructions';
+import GameOver from './components/GameOver';
 
-export default function Home() {
+// Game constants
+const GRID_SIZE = 15;
+const CELL_SIZE = 40;
+
+// Example walls -> will be randomly created in the final game
+const WALLS = [
+    // Outer walls
+    {x: 0, y: 0, w: GRID_SIZE, h: 1}, // Top
+    {x: 0, y: GRID_SIZE-1, w: GRID_SIZE, h: 1}, // Bottom
+    {x: 0, y: 0, w: 1, h: GRID_SIZE}, // Left
+    {x: GRID_SIZE-1, y: 0, w: 1, h: GRID_SIZE}, // Right
+
+    // Inner vertical walls
+    {x: 2, y: 2, w: 1, h: 6},
+    {x: 4, y: 4, w: 1, h: 5},
+    // ... (rest of the wall definitions)
+];
+
+//Add this helper function after the WALLS constant
+const getRandomPosition = () => {
+    let newPos;
+    do {
+        newPos = {
+            x: Math.floor(Math.random() * (GRID_SIZE - 2)) + 1,
+            y: Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
+        };
+    } while (isColliding(newPos));
+    return newPos;
+};
+
+// Player initial position
+const INITIAL_PLAYER = { x: 1, y: 1 };
+
+
+const isColliding = (playerPos: {x: number, y: number}) => {
+    return WALLS.some(wall => {
+        return playerPos.x >= wall.x && 
+               playerPos.x < wall.x + wall.w && 
+               playerPos.y >= wall.y && 
+               playerPos.y < wall.y + wall.h;
+    });
+};
+
+const ShadowRunPage = () => {
+  const [player, setPlayer] = useState(INITIAL_PLAYER);
+  const [mysteryPoint, setMysteryPoint] = useState(getRandomPosition());
+  const [score, setScore] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [pointsCollected, setPointsCollected] = useState(0);
+  
+    // Modify handleMysteryPoint to update mystery point position
+    const handleMysteryPoint = useCallback((newPos: {x: number, y: number}) => {
+        if (newPos.x === mysteryPoint.x && newPos.y === mysteryPoint.y) {
+            setScore(prev => prev + 50);
+            setPointsCollected(prev => prev + 0.5);
+            setMysteryPoint(getRandomPosition());
+            setTimeLeft(prev => prev + 2.5);
+        }
+    }, [mysteryPoint]);
+  // Keyboard Event Handler
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    setPlayer(prev => { 
+        const newPos = { ...prev };
+        switch (e.key.toLowerCase()) {
+            case 'arrowup':
+            case 'w':
+                newPos.y = Math.max(0, prev.y - 1);
+                break;
+            case 'arrowdown':
+            case 's':
+                newPos.y = Math.min(GRID_SIZE - 1, prev.y + 1);
+                break;
+            case 'arrowleft':
+            case 'a':
+                newPos.x = Math.max(0, prev.x - 1);
+                break;
+            case 'arrowright':
+            case 'd':
+                newPos.x = Math.min(GRID_SIZE - 1, prev.x + 1);
+                break;
+        }
+        // Check for wall collision
+        const finalPos = isColliding(newPos) ? prev : newPos;
+        // Check for mystery point
+        handleMysteryPoint(finalPos);
+        return finalPos;
+    });
+  }, [handleMysteryPoint]);
+
+  // Touch Event Handler
+  const handleTouch: React.TouchEventHandler<HTMLElement> = useCallback((e) => {
+    const touch = e.touches[0];
+    const target = e.target as HTMLElement; // Cast e.target to HTMLElement
+    const rect = target.getBoundingClientRect(); // Now TypeScript recognizes getBoundingClientRect
+
+    const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    setPlayer(prev => {
+        const newPos = { ...prev };
+
+        if (touchX < centerX) newPos.x = Math.max(0, prev.x - 1);
+        if (touchX > centerX) newPos.x = Math.min(GRID_SIZE - 1, prev.x + 1);
+        if (touchY < centerY) newPos.y = Math.max(0, prev.y - 1);
+        if (touchY > centerY) newPos.y = Math.min(GRID_SIZE - 1, prev.y + 1);
+
+        const finalPos = isColliding(newPos) ? prev : newPos;
+        handleMysteryPoint(finalPos);
+        return finalPos;
+    });
+}, [handleMysteryPoint]);
+
+
+
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown); 
+  }, [handleKeyDown]); 
+
+  // Add this after your existing useEffect
+  useEffect(() => {
+      if (!showInstructions && timeLeft > 0) {
+          const timer = setInterval(() => {
+              setTimeLeft(prev => prev - 1);
+          }, 1000);
+
+          return () => clearInterval(timer);
+      } else if (timeLeft === 0) {
+          setIsGameOver(true);
+      }
+  }, [timeLeft, showInstructions]);	
+
+    const handleStartGame = () => {
+        setShowInstructions(false);
+    };
+
+    const handlePlayAgain = () => {
+        setTimeLeft(30);
+        setScore(0);
+        setPointsCollected(0);
+        setPlayer(INITIAL_PLAYER);
+        setMysteryPoint(getRandomPosition());
+        setIsGameOver(false);
+    };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+        <main 
+            onTouchStart={handleTouch} 
+            onTouchMove={handleTouch}  
+            className="min-h-screen bg-gray-900 text-white p-8"
+        >
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        <h1 className='text-4xl font-bold text-center mb-8'>Overlocked Breach</h1>
+            
+            {/* Game Stats */}
+            <GameStats score={score} timeLeft={timeLeft} pointsCollected={pointsCollected}/>
+
+            {/* Game Grid */}
+            <GameBoard 
+                player={player} 
+                mysteryPoint={mysteryPoint} 
+                walls={WALLS} 
+                cellSize={CELL_SIZE}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+            {/* Instructions */}
+            <Instructions 
+                showInstructions={showInstructions} 
+                onStartGame={handleStartGame} 
+            />
+
+            {/* Game Over Popup */}
+            <GameOver 
+                isGameOver={isGameOver} 
+                score={score} 
+                pointsCollected={pointsCollected} 
+                onPlayAgain={handlePlayAgain} 
+            />
+    </main>
   );
-}
+};
+
+export default ShadowRunPage;
