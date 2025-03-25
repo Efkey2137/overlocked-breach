@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { generateMaze } from './components/mazeGenerator';
 import GameStats from './components/GameStats';
 import Instructions from './components/Instructions';
 import GameOver from './components/GameOver';
@@ -10,13 +11,14 @@ import DirectionalControls from './components/DirectionalControls';
 const GRID_SIZE = 15;
 const CELL_SIZE = 40; // Base cell size, will be adjusted responsively
 
-export default function ShadowRunPage() {
-  // Add state for tracking window width
+export default function OverlockedBreachPage() {
+  // Safe initial state
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [isClientSide, setIsClientSide] = useState(false);
   
-  // Check window width on client-side only
+  // Initialize after mount
   useEffect(() => {
-    // This runs only in the browser
+    setIsClientSide(true);
     setIsLargeScreen(window.innerWidth >= 1024);
     
     const handleResize = () => {
@@ -27,41 +29,11 @@ export default function ShadowRunPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Generate random walls
+  // Generate random walls after client-side hydration
   const walls = useMemo(() => {
-    const mazeWalls = [];
-    
-    // Horizontal walls (border)
-    for (let x = 0; x < GRID_SIZE; x++) {
-      mazeWalls.push({ x, y: 0, w: 1, h: 1 });  // Top wall
-      mazeWalls.push({ x, y: GRID_SIZE-1, w: 1, h: 1 });  // Bottom wall
-    }
-    
-    // Vertical walls (border)
-    for (let y = 0; y < GRID_SIZE; y++) {
-      mazeWalls.push({ x: 0, y, w: 1, h: 1 });  // Left wall
-      mazeWalls.push({ x: GRID_SIZE-1, y, w: 1, h: 1 });  // Right wall
-    }
-    
-    // Generate random internal walls
-    const numberOfWalls = Math.floor(Math.random() * 6) + 4; // 4-10 random walls
-    
-    for (let i = 0; i < numberOfWalls; i++) {
-      const x = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2; // Keep away from borders
-      const y = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2;
-      const isHorizontal = Math.random() > 0.5;
-      
-      if (isHorizontal) {
-        const width = Math.floor(Math.random() * 3) + 2; // Width between 2-4
-        mazeWalls.push({ x, y, w: width, h: 1 });
-      } else {
-        const height = Math.floor(Math.random() * 3) + 2; // Height between 2-4
-        mazeWalls.push({ x, y, w: 1, h: height });
-      }
-    }
-    
-    return mazeWalls;
-  }, []);
+    if (!isClientSide) return [];
+    return generateMaze();
+  }, [isClientSide]);
   
   // Collision detection
   const isColliding = useCallback((pos: { x: number, y: number }) => {
