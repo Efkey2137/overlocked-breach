@@ -6,6 +6,7 @@ import Instructions from './components/Instructions';
 import GameOver from './components/GameOver';
 import GameBoard from './components/GameBoard';
 import DirectionalControls from './components/DirectionalControls';
+import Enemy from './components/Enemy';
 
 // Game constants
 const GRID_SIZE = 15;
