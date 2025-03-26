@@ -20,6 +20,11 @@ export const generateMaze = (): Wall[] => {
     );
   };
 
+  // Funkcja sprawdzająca, czy ściana mieści się w granicach labiryntu
+  const isWithinBounds = (wall: Wall): boolean => {
+    return wall.x >= 1 && wall.y >= 1 && wall.x + wall.w <= GRID_SIZE - 1 && wall.y + wall.h <= GRID_SIZE - 1;
+  };
+
   // Ściany graniczne
   for (let x = 0; x < GRID_SIZE; x++) {
     mazeWalls.push({ x, y: 0, w: 1, h: 1 });
@@ -49,7 +54,7 @@ export const generateMaze = (): Wall[] => {
         newWall = { x, y, w: 1, h: height };
       }
       attempts++;
-    } while (isColliding(newWall) && attempts < 50);
+    } while ((isColliding(newWall) || !isWithinBounds(newWall)) && attempts < 50);
 
     if (attempts < 50) {
       mazeWalls.push(newWall);
@@ -61,4 +66,4 @@ export const generateMaze = (): Wall[] => {
 
 export const useGenerateMaze = () => {
   return useMemo(() => generateMaze(), []);
-};
+}

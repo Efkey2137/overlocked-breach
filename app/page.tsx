@@ -8,16 +8,23 @@ import GameBoard from './components/GameBoard';
 import DirectionalControls from './components/DirectionalControls';
 import Enemy from './components/Enemy';
 
-// Game constants
 const GRID_SIZE = 15;
-const CELL_SIZE = 40; // Base cell size, will be adjusted responsively
+const CELL_SIZE = 40;
 
 export default function OverlockedBreachPage() {
-  // Safe initial state
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isClientSide, setIsClientSide] = useState(false);
-  
-  // Initialize after mount
+  const [isGameActive, setIsGameActive] = useState(false);
+  const [gameOverReason, setGameOverReason] = useState<'time' | 'caught'>('time');
+  const [player, setPlayer] = useState({ x: 1, y: 1 });
+  const [mysteryPoint, setMysteryPoint] = useState(() => ({ x: 10, y: 10 }));
+  const [score, setScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [pointsCollected, setPointsCollected] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [lastMoveDirection, setLastMoveDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
+
   useEffect(() => {
     setIsClientSide(true);
     setIsLargeScreen(window.innerWidth >= 1024);
@@ -29,14 +36,12 @@ export default function OverlockedBreachPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
-  // Generate random walls after client-side hydration
+
   const walls = useMemo(() => {
     if (!isClientSide) return [];
     return generateMaze();
   }, [isClientSide]);
-  
-  // Collision detection
+
   const isColliding = useCallback((pos: { x: number, y: number }) => {
     return walls.some(wall => 
       pos.x >= wall.x && 
@@ -45,8 +50,7 @@ export default function OverlockedBreachPage() {
       pos.y < wall.y + wall.h
     );
   }, [walls]);
-  
-  // Get a position that doesn't collide with walls
+
   const getRandomPosition = useCallback(() => {
     let pos;
     do {
@@ -57,17 +61,13 @@ export default function OverlockedBreachPage() {
     } while (isColliding(pos));
     return pos;
   }, [isColliding]);
-  
-  const [player, setPlayer] = useState({ x: 1, y: 1 });
-  const [mysteryPoint, setMysteryPoint] = useState(() => ({ x: 10, y: 10 }));
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
-  const [pointsCollected, setPointsCollected] = useState(0);
-  const [showInstructions, setShowInstructions] = useState(true);
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [lastMoveDirection, setLastMoveDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
-  
-  // Prevent context menu (right-click) on the entire game
+
+  const handleGameLose = useCallback(() => {
+    setIsGameOver(true);
+    setIsGameActive(false);
+    setGameOverReason('caught');
+  }, []);
+
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -80,23 +80,13 @@ export default function OverlockedBreachPage() {
       document.removeEventListener('contextmenu', handleContextMenu);
     };
   }, []);
-  
-  // Prevent touch selection highlighting
+
   useEffect(() => {
-    // Add global styles to prevent selection
     const style = document.createElement('style');
     style.innerHTML = `
-      body, html {
+      body, html, * {
         -webkit-tap-highlight-color: rgba(0,0,0,0);
         -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-      }
-      
-      * {
         -webkit-user-select: none;
         -khtml-user-select: none;
         -moz-user-select: none;
@@ -110,8 +100,7 @@ export default function OverlockedBreachPage() {
       document.head.removeChild(style);
     };
   }, []);
-  
-  // Movement with collision detection
+
   const handleMovement = useCallback((e: KeyboardEvent) => {
     const key = e.key.toLowerCase();
     setPlayer(prev => {
@@ -141,13 +130,10 @@ export default function OverlockedBreachPage() {
           break;
       }
       
-      // Update last move direction for highlighting
       setLastMoveDirection(direction);
       
-      // Check for collision
       const finalPos = isColliding(newPos) ? prev : newPos;
       
-      // Check for mystery point collection
       if (finalPos.x === mysteryPoint.x && finalPos.y === mysteryPoint.y) {
         setScore(prev => prev + 50);
         setPointsCollected(prev => prev + 1);
@@ -158,8 +144,7 @@ export default function OverlockedBreachPage() {
       return finalPos;
     });
   }, [mysteryPoint, isColliding, getRandomPosition]);
-  
-  // Handle direct control from buttons
+
   const handleDirectionalControl = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     const keyMap = {
       'up': 'ArrowUp',
@@ -171,16 +156,16 @@ export default function OverlockedBreachPage() {
     const event = new KeyboardEvent('keydown', { key: keyMap[direction] });
     handleMovement(event);
   }, [handleMovement]);
-  
-  // Set up keyboard listener
+
   useEffect(() => {
     if (!showInstructions && !isGameOver) {
       window.addEventListener('keydown', handleMovement);
-      return () => window.removeEventListener('keydown', handleMovement);
+      return () => {
+        window.removeEventListener('keydown', handleMovement);
+      };
     }
-  }, [handleMovement, showInstructions, isGameOver]);
-  
-  // Set up timer
+  }, [showInstructions, isGameOver, handleMovement]);
+
   useEffect(() => {
     if (!showInstructions && !isGameOver && timeLeft > 0) {
       const timer = setInterval(() => {
@@ -190,9 +175,11 @@ export default function OverlockedBreachPage() {
       return () => clearInterval(timer);
     } else if (timeLeft <= 0 && !showInstructions) {
       setIsGameOver(true);
+      setIsGameActive(false);
+      setGameOverReason('time');
     }
   }, [timeLeft, showInstructions, isGameOver]);
-  
+
   const handleStartGame = useCallback(() => {
     setShowInstructions(false);
     setTimeLeft(30);
@@ -200,8 +187,9 @@ export default function OverlockedBreachPage() {
     setPointsCollected(0);
     setPlayer({ x: 1, y: 1 });
     setMysteryPoint(getRandomPosition());
+    setIsGameActive(true);
   }, [getRandomPosition]);
-  
+
   const handlePlayAgain = useCallback(() => {
     setTimeLeft(30);
     setScore(0);
@@ -209,26 +197,32 @@ export default function OverlockedBreachPage() {
     setPlayer({ x: 1, y: 1 });
     setMysteryPoint(getRandomPosition());
     setIsGameOver(false);
+    setIsGameActive(true);
   }, [getRandomPosition]);
 
-  // Add selection prevention classes globally
   return (
     <main className="min-h-screen bg-gray-900 text-white p-4 flex flex-col select-none">
       <h1 className='text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-4 select-none'>Overlocked Breach</h1>
       
-      {/* Game Stats - more compact on mobile */}
       <div className="mb-2 sm:mb-4 select-none">
         <GameStats score={score} timeLeft={timeLeft} pointsCollected={pointsCollected} />
       </div>
       
-      {/* Responsive layout switching */}
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center select-none">
-        {/* Game Board - centered and responsive */}
-        <div className="mb-4 lg:mb-0 select-none">
-          <GameBoard player={player} mysteryPoint={mysteryPoint} walls={walls} cellSize={CELL_SIZE} />
+        <div className="mb-4 lg:mb-0 select-none relative">
+          <GameBoard player={player} mysteryPoint={mysteryPoint} walls={walls} cellSize={CELL_SIZE}>
+            {isClientSide && !showInstructions && (
+              <Enemy 
+                player={player} 
+                walls={walls} 
+                cellSize={CELL_SIZE} 
+                onCatchPlayer={handleGameLose}
+                isGameActive={isGameActive && !isGameOver}
+              />
+            )}
+          </GameBoard>
         </div>
         
-        {/* Controls - changes position based on screen size */}
         <div className="lg:ml-6 mt-2 lg:mt-0 select-none">
           <DirectionalControls 
             onMove={handleDirectionalControl}
@@ -237,12 +231,17 @@ export default function OverlockedBreachPage() {
           />
         </div>
       </div>
+
       
-      {/* Instructions */}
       <Instructions showInstructions={showInstructions} onStartGame={handleStartGame} />
       
-      {/* Game Over */}
-      <GameOver isGameOver={isGameOver} score={score} pointsCollected={pointsCollected} onPlayAgain={handlePlayAgain} />
+      <GameOver 
+        isGameOver={isGameOver} 
+        score={score} 
+        pointsCollected={pointsCollected} 
+        onPlayAgain={handlePlayAgain} 
+        reason={gameOverReason}
+      />
     </main>
   );
 }

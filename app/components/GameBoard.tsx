@@ -5,11 +5,12 @@ import Wall from './Wall'; // Import the Wall component
 interface GameBoardProps {
     player: { x: number; y: number };
     mysteryPoint: { x: number; y: number };
-    walls: { x: number; y: number; w: number; h: number }[];
+    walls: Array<{ x: number; y: number; w: number; h: number }>;
     cellSize: number;
+    children?: React.ReactNode;  // Dodaj tę linię
 }
 
-const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cellSize: defaultCellSize }) => {
+const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cellSize: defaultCellSize, children }) => {
     const [cellSize, setCellSize] = useState(defaultCellSize);
     
     // Responsive sizing based on viewport
@@ -84,6 +85,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ player, mysteryPoint, walls, cell
                     top: mysteryPoint.y * cellSize + 2,
                 }}
             />
+            {children} {/* Dodaj tę linię */}
         </div>
     );
 };
