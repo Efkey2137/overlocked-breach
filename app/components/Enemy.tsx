@@ -15,12 +15,12 @@ const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, i
   const [position, setPosition] = useState({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
   const [lastDirection, setLastDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const isColliding = useCallback((pos: { x: number, y: number }) => {
-    return walls.some(wall => 
-      pos.x >= wall.x && 
-      pos.x < wall.x + wall.w && 
-      pos.y >= wall.y && 
+    return walls.some(wall =>  
+      pos.x >= wall.x &&
+      pos.x < wall.x + wall.w &&
+      pos.y >= wall.y &&
       pos.y < wall.y + wall.h
     );
   }, [walls]);
@@ -28,13 +28,13 @@ const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, i
   const isWithinBounds = useCallback((pos: { x: number, y: number }) => {
     return pos.x >= 0 && pos.x < GRID_SIZE && pos.y >= 0 && pos.y < GRID_SIZE;
   }, []);
-  
+
   const checkPlayerCatch = useCallback((enemyPos: { x: number, y: number }) => {
     if (enemyPos.x === player.x && enemyPos.y === player.y) {
       onCatchPlayer();
     }
   }, [player, onCatchPlayer]);
-  
+
   const getAvailableDirections = useCallback((pos: { x: number, y: number }) => {
     const directions = [
       { name: 'up', newPos: { x: pos.x, y: pos.y - 1 } },
@@ -42,70 +42,47 @@ const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, i
       { name: 'left', newPos: { x: pos.x - 1, y: pos.y } },
       { name: 'right', newPos: { x: pos.x + 1, y: pos.y } }
     ];
-    
-    return directions.filter(dir => 
-      isWithinBounds(dir.newPos) && !isColliding(dir.newPos)
-    );
+    return directions.filter(dir => isWithinBounds(dir.newPos) && !isColliding(dir.newPos));
   }, [isWithinBounds, isColliding]);
-  
+
   const moveEnemy = useCallback(() => {
     setPosition(prev => {
-      // Sprawdź dostępne kierunki z aktualnej pozycji
       const availableDirections = getAvailableDirections(prev);
-      
       if (availableDirections.length === 0) {
-        return prev; // Utknął, nie ma gdzie iść
+        return prev;
       }
-      
       let newDirection;
-      
-      // Preferuj kontynuowanie w tym samym kierunku, jeśli to możliwe
       if (lastDirection) {
         const canContinue = availableDirections.find(dir => dir.name === lastDirection);
         if (canContinue) {
           newDirection = canContinue;
         }
       }
-      
-      // Jeśli nie można kontynuować w tym samym kierunku lub nie ma poprzedniego kierunku, wybierz losowo
-      // Ale unikaj zawracania, jeśli to możliwe (gdy dostępny więcej niż 1 kierunek)
       if (!newDirection) {
         let oppositeDirection = null;
         if (lastDirection === 'up') oppositeDirection = 'down';
         else if (lastDirection === 'down') oppositeDirection = 'up';
         else if (lastDirection === 'left') oppositeDirection = 'right';
         else if (lastDirection === 'right') oppositeDirection = 'left';
-        
-        const filteredDirections = availableDirections.length > 1 
-          ? availableDirections.filter(dir => dir.name !== oppositeDirection)
-          : availableDirections;
-        
+        const filteredDirections = availableDirections.length > 1 ? availableDirections.filter(dir => dir.name !== oppositeDirection) : availableDirections;
         const randomIndex = Math.floor(Math.random() * filteredDirections.length);
         newDirection = filteredDirections[randomIndex];
       }
-      
       setLastDirection(newDirection.name as 'up' | 'down' | 'left' | 'right');
-      
       const newPos = newDirection.newPos;
       checkPlayerCatch(newPos);
-      
       return newPos;
     });
   }, [getAvailableDirections, lastDirection, checkPlayerCatch]);
-  
+
   useEffect(() => {
-    // Wyczyść poprzedni interwał, jeśli istnieje
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    
     if (isGameActive) {
-      // Ustaw nowy interwał
       intervalRef.current = setInterval(moveEnemy, 500);
     }
-    
-    // Funkcja czyszcząca
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -113,25 +90,24 @@ const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, i
       }
     };
   }, [isGameActive, moveEnemy]);
-  
-  // Sprawdź, czy gracz został złapany po każdej zmianie pozycji
+
   useEffect(() => {
     if (position.x === player.x && position.y === player.y) {
       onCatchPlayer();
     }
   }, [position, player, onCatchPlayer]);
-  
+
   return (
-    <div 
-      className="absolute rounded-full bg-red-600"
-      style={{
-        width: `${cellSize * 0.8}px`,
-        height: `${cellSize * 0.8}px`,
-        left: `${position.x * cellSize + cellSize * 0.1}px`,
-        top: `${position.y * cellSize + cellSize * 0.1}px`,
-        transition: 'left 0.2s, top 0.2s',
-        zIndex: 10
-      }}
+    <div  
+      className="absolute rounded-full bg-red-600" 
+      style={{ 
+        width: `${cellSize - 4}px`,
+        height: `${cellSize - 4}px`, 
+        left: `${position.x * cellSize + 2}px`, 
+        top: `${position.y * cellSize + 2}px`, 
+        transition: 'left 0.2s, top 0.2s', 
+        zIndex: 10 
+      }} 
     />
   );
 };

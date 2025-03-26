@@ -1,4 +1,3 @@
-// DirectionalControls.tsx
 import React, { useState } from 'react';
 
 interface DirectionalControlsProps {
@@ -8,10 +7,10 @@ interface DirectionalControlsProps {
   layout?: 'vertical' | 'horizontal';
 }
 
-const DirectionalControls: React.FC<DirectionalControlsProps> = ({ 
-  onMove, 
-  className = "", 
-  currentDirection = null,
+const DirectionalControls: React.FC<DirectionalControlsProps> = ({  
+  onMove,  
+  className = "",  
+  currentDirection = null, 
   layout = 'vertical'
 }) => {
   const [activeButton, setActiveButton] = useState<string | null>(null);
@@ -19,14 +18,11 @@ const DirectionalControls: React.FC<DirectionalControlsProps> = ({
   const handleButtonPress = (direction: 'up' | 'down' | 'left' | 'right') => {
     setActiveButton(direction);
     onMove(direction);
-    
-    // Reset active state after a short delay for visual feedback
     setTimeout(() => {
       setActiveButton(null);
     }, 200);
   };
 
-  // Dynamic sizing for mobile vs desktop with selection prevention
   const buttonClass = "select-none flex items-center justify-center rounded-full bg-gray-700 text-white transition-all duration-200 focus:outline-none active:scale-95 touch-manipulation";
   const activeClass = "bg-blue-500";
 
@@ -34,11 +30,8 @@ const DirectionalControls: React.FC<DirectionalControlsProps> = ({
     <div className={`${className} ${layout === 'horizontal' ? 'lg:flex lg:items-center' : 'flex flex-col items-center'} select-none`}>
       <div className={`controls-container ${layout === 'horizontal' ? 'lg:mr-8' : ''} select-none`}>
         <div className="grid grid-cols-3 gap-1 sm:gap-2 select-none">
-          {/* Empty cell */}
           <div className="select-none"></div>
-          
-          {/* Up button */}
-          <button
+          <button 
             className={`${buttonClass} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 ${activeButton === 'up' || currentDirection === 'up' ? activeClass : ''}`}
             onClick={() => handleButtonPress('up')}
             aria-label="Move up"
@@ -48,12 +41,8 @@ const DirectionalControls: React.FC<DirectionalControlsProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
           </button>
-          
-          {/* Empty cell */}
           <div className="select-none"></div>
-          
-          {/* Left button */}
-          <button
+          <button 
             className={`${buttonClass} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 ${activeButton === 'left' || currentDirection === 'left' ? activeClass : ''}`}
             onClick={() => handleButtonPress('left')}
             aria-label="Move left"
@@ -63,14 +52,10 @@ const DirectionalControls: React.FC<DirectionalControlsProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          
-          {/* Center empty cell */}
           <div className="flex items-center justify-center select-none">
             <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-gray-800 select-none"></div>
           </div>
-          
-          {/* Right button */}
-          <button
+          <button 
             className={`${buttonClass} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 ${activeButton === 'right' || currentDirection === 'right' ? activeClass : ''}`}
             onClick={() => handleButtonPress('right')}
             aria-label="Move right"
@@ -80,12 +65,8 @@ const DirectionalControls: React.FC<DirectionalControlsProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          
-          {/* Empty cell */}
           <div className="select-none"></div>
-          
-          {/* Down button */}
-          <button
+          <button 
             className={`${buttonClass} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 ${activeButton === 'down' || currentDirection === 'down' ? activeClass : ''}`}
             onClick={() => handleButtonPress('down')}
             aria-label="Move down"
@@ -95,8 +76,6 @@ const DirectionalControls: React.FC<DirectionalControlsProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          
-          {/* Empty cell */}
           <div className="select-none"></div>
         </div>
       </div>
