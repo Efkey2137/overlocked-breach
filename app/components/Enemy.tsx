@@ -7,14 +7,91 @@ interface EnemyProps {
   cellSize: number;
   onCatchPlayer: () => void;
   isGameActive: boolean;
+  isPlayerTurn: boolean;
+  onEnemyMoveComplete: () => void;
 }
 
 const GRID_SIZE = 15;
 
-const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, isGameActive }) => {
+const Enemy: React.FC<EnemyProps> = ({ 
+  player, 
+  walls, 
+  cellSize, 
+  onCatchPlayer, 
+  isGameActive,
+  isPlayerTurn,
+  onEnemyMoveComplete
+}) => {
   const [position, setPosition] = useState({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
-  const positionRef = useRef(position); // Ref to track the current position without causing re-renders
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const positionRef = useRef(position);
+
+  // Usuwamy efekt resetujący pozycję przeciwnika przy zmianie labiryntu
+  // Zamiast tego sprawdzamy, czy przeciwnik nie znajduje się w ścianie po zmianie labiryntu
+  useEffect(() => {
+    const currentPos = positionRef.current;
+    
+    // Sprawdź, czy aktualna pozycja koliduje ze ścianami nowego labiryntu
+    const isCurrentPosColliding = walls.some(wall =>
+      currentPos.x >= wall.x &&
+      currentPos.x < wall.x + wall.w &&
+      currentPos.y >= wall.y &&
+      currentPos.y < wall.y + wall.h
+    );
+    
+    // Jeśli pozycja koliduje, znajdź najbliższe wolne miejsce
+    if (isCurrentPosColliding) {
+      // Szukamy najbliższego wolnego miejsca
+      const directions = [
+        { dx: 0, dy: -1 }, // góra
+        { dx: 0, dy: 1 },  // dół
+        { dx: -1, dy: 0 }, // lewo
+        { dx: 1, dy: 0 },  // prawo
+        { dx: -1, dy: -1 }, // lewo-góra
+        { dx: 1, dy: -1 },  // prawo-góra
+        { dx: -1, dy: 1 },  // lewo-dół
+        { dx: 1, dy: 1 }    // prawo-dół
+      ];
+      
+      // Sprawdzamy coraz dalsze pozycje, aż znajdziemy wolną
+      let found = false;
+      let distance = 1;
+      
+      while (!found && distance < 5) { // Ograniczamy do rozsądnej odległości
+        for (const dir of directions) {
+          const newPos = {
+            x: currentPos.x + dir.dx * distance,
+            y: currentPos.y + dir.dy * distance
+          };
+          
+          // Sprawdź, czy pozycja jest w granicach i nie koliduje
+          if (
+            newPos.x >= 0 && newPos.x < GRID_SIZE &&
+            newPos.y >= 0 && newPos.y < GRID_SIZE &&
+            !walls.some(wall =>
+              newPos.x >= wall.x &&
+              newPos.x < wall.x + wall.w &&
+              newPos.y >= wall.y &&
+              newPos.y < wall.y + wall.h
+            )
+          ) {
+            // Znaleziono wolną pozycję
+            setPosition(newPos);
+            positionRef.current = newPos;
+            found = true;
+            break;
+          }
+        }
+        distance++;
+      }
+      
+      // Jeśli nie znaleziono wolnej pozycji, użyj domyślnej
+      if (!found) {
+        const defaultPos = { x: GRID_SIZE - 2, y: GRID_SIZE - 2 };
+        setPosition(defaultPos);
+        positionRef.current = defaultPos;
+      }
+    }
+  }, [walls]);
 
   // Precompute wall positions for faster collision checks
   const wallPositions = useMemo(() => {
@@ -80,13 +157,16 @@ const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, i
     return []; // No path found
   }, [player, isWithinBounds, isColliding]);
 
+  // Zmodyfikowana funkcja moveEnemy
   const moveEnemy = useCallback(() => {
-    const currentPosition = positionRef.current; // Use the ref to get the current position
+    if (isPlayerTurn) return; // Nie ruszaj się, jeśli to tura gracza
+    
+    const currentPosition = positionRef.current;
     const pathToPlayer = findPathToPlayer(currentPosition);
 
     if (pathToPlayer.length > 0) {
-      const nextMove = pathToPlayer[0]; // Take the first step in the path
-      let newPos = currentPosition;
+      const nextMove = pathToPlayer[0];
+      let newPos = {...currentPosition};
 
       switch (nextMove) {
         case 'up':
@@ -103,27 +183,31 @@ const Enemy: React.FC<EnemyProps> = ({ player, walls, cellSize, onCatchPlayer, i
           break;
       }
 
-      positionRef.current = newPos; // Update the ref with the new position
-      setPosition(newPos); // Update state for rendering
+      positionRef.current = newPos;
+      setPosition(newPos);
       checkPlayerCatch(newPos);
+      
+      // Po ruchu przeciwnika, przekaż turę z powrotem do gracza
+      setTimeout(() => {
+        onEnemyMoveComplete();
+      }, 300); // Krótkie opóźnienie dla lepszej widoczności ruchu
+    } else {
+      // Jeśli nie ma ścieżki, również przekaż turę
+      onEnemyMoveComplete();
     }
-  }, [findPathToPlayer, checkPlayerCatch]);
+  }, [findPathToPlayer, checkPlayerCatch, isPlayerTurn, onEnemyMoveComplete]);
 
-  // Ensure enemy movement runs independently of external updates
+  // Zmodyfikowany useEffect
   useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    if (isGameActive && !isPlayerTurn) {
+      // Wykonaj ruch przeciwnika po krótkim opóźnieniu
+      const timer = setTimeout(() => {
+        moveEnemy();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-    if (isGameActive) {
-      intervalRef.current = setInterval(moveEnemy, 500); // Adjust interval as needed
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [isGameActive, moveEnemy]);
+  }, [isGameActive, isPlayerTurn, moveEnemy]);
 
   // Check if enemy catches the player immediately after moving
   useEffect(() => {
