@@ -9,6 +9,8 @@ interface EnemyProps {
   isGameActive: boolean;
   isPlayerTurn: boolean;
   onEnemyMoveComplete: () => void;
+  initialPosition?: { x: number, y: number };
+  onPositionUpdate?: (pos: { x: number, y: number }) => void;
 }
 
 const GRID_SIZE = 15;
@@ -20,17 +22,29 @@ const Enemy: React.FC<EnemyProps> = ({
   onCatchPlayer, 
   isGameActive,
   isPlayerTurn,
-  onEnemyMoveComplete
+  onEnemyMoveComplete,
+  initialPosition,
+  onPositionUpdate
 }) => {
-  const [position, setPosition] = useState({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
+  const [position, setPosition] = useState(initialPosition || { x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
   const positionRef = useRef(position);
 
-  // Usuwamy efekt resetujący pozycję przeciwnika przy zmianie labiryntu
-  // Zamiast tego sprawdzamy, czy przeciwnik nie znajduje się w ścianie po zmianie labiryntu
+  // Aktualizuj referencję pozycji przy zmianie
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
+
+  // Aktualizuj pozycję w komponencie nadrzędnym, jeśli funkcja została przekazana
+  useEffect(() => {
+    if (onPositionUpdate) {
+      onPositionUpdate(position);
+    }
+  }, [position, onPositionUpdate]);
+
+  // Sprawdź, czy aktualna pozycja koliduje ze ścianami nowego labiryntu
   useEffect(() => {
     const currentPos = positionRef.current;
     
-    // Sprawdź, czy aktualna pozycja koliduje ze ścianami nowego labiryntu
     const isCurrentPosColliding = walls.some(wall =>
       currentPos.x >= wall.x &&
       currentPos.x < wall.x + wall.w &&

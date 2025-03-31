@@ -27,8 +27,7 @@ export default function OverlockedBreachPage() {
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [mazeKey, setMazeKey] = useState(0);
-
-  // Dynamiczny cellSize – teraz wszyscy tańczą do tej samej muzyki.
+  const [enemyPosition, setEnemyPosition] = useState({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
   const [dynamicCellSize, setDynamicCellSize] = useState(DEFAULT_CELL_SIZE);
 
   useEffect(() => {
@@ -66,27 +65,24 @@ export default function OverlockedBreachPage() {
     );
   }, [walls]);
 
-  // Poprawiona funkcja getRandomPosition, która upewnia się, że punkt nie pojawi się w ścianie
+  const updateEnemyPosition = useCallback((pos: { x: number, y: number }) => {
+    setEnemyPosition(pos);
+  }, []);
+
   const getRandomPosition = useCallback(() => {
-    // Tworzymy mapę dostępnych pozycji (nie będących ścianami)
     const availablePositions = [];
-    
     for (let x = 1; x < GRID_SIZE - 1; x++) {
       for (let y = 1; y < GRID_SIZE - 1; y++) {
         const pos = { x, y };
-        // Sprawdź czy pozycja nie koliduje ze ścianą
         if (!isColliding(pos)) {
           availablePositions.push(pos);
         }
       }
     }
-    
-    // Jeśli nie ma dostępnych pozycji (co jest mało prawdopodobne), zwróć domyślną pozycję
     if (availablePositions.length === 0) {
+      console.warn("Nie znaleziono dostępnych pozycji!");
       return { x: 1, y: 1 };
     }
-    
-    // Wybierz losową pozycję z dostępnych
     const randomIndex = Math.floor(Math.random() * availablePositions.length);
     return availablePositions[randomIndex];
   }, [isColliding]);
@@ -102,26 +98,23 @@ export default function OverlockedBreachPage() {
   }, []);
 
   const handlePointCollected = useCallback(() => {
-    // Zwiększ punktację
     setScore(prev => prev + 50);
     setPointsCollected(prev => prev + 1);
     setTimeLeft(prev => Math.min(prev + 5, 30));
-    
-    // Rozpocznij przejście
     setIsTransitioning(true);
-    
-    // Po 1 sekundzie zakończ przejście i wygeneruj nowy labirynt
     setTimeout(() => {
-      setMazeKey(prev => prev + 1); // Zmień klucz, aby wymusić regenerację labiryntu
-      
-      // Przesuń generowanie nowego punktu po regeneracji labiryntu
+      setMazeKey(prev => prev + 1);
       setTimeout(() => {
-        setMysteryPoint(getRandomPosition());
+        let safePointPos;
+        do {
+          safePointPos = getRandomPosition();
+        } while (safePointPos.x === player.x && safePointPos.y === player.y);
+        setMysteryPoint(safePointPos);
         setIsTransitioning(false);
         setIsPlayerTurn(true);
-      }, 100); // Krótkie opóźnienie, aby upewnić się, że labirynt został wygenerowany
+      }, 500); // Zwiększone opóźnienie dla pewności
     }, 1000);
-  }, [getRandomPosition]);
+  }, [getRandomPosition, player]);
 
   const handleMovement = useCallback((e: KeyboardEvent) => {
     if (!isGameActive || !isPlayerTurn || isTransitioning) return;
@@ -154,27 +147,19 @@ export default function OverlockedBreachPage() {
           return prev;
       }
       setLastMoveDirection(direction);
-      
-      // Sprawdź kolizje ze ścianami
       const finalPos = isColliding(newPos) ? prev : newPos;
-      
-      // Jeśli gracz się poruszył (pozycja się zmieniła), zmień turę
       if (finalPos.x !== prev.x || finalPos.y !== prev.y) {
         setIsPlayerTurn(false);
-        
-        // Sprawdź, czy gracz zebrał punkt
         if (finalPos.x === mysteryPoint.x && finalPos.y === mysteryPoint.y) {
           handlePointCollected();
         }
       }
-      
       return finalPos;
     });
   }, [isGameActive, mysteryPoint, isColliding, isPlayerTurn, isTransitioning, handlePointCollected]);
 
   const handleDirectionalControl = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     if (!isPlayerTurn || isTransitioning) return;
-    
     const keyMap = {
       'up': 'ArrowUp',
       'down': 'ArrowDown',
@@ -212,32 +197,40 @@ export default function OverlockedBreachPage() {
     setTimeLeft(30);
     setScore(0);
     setPointsCollected(0);
-    setPlayer({ x: 1, y: 1 });
     setMazeKey(prev => prev + 1);
-    
-    // Generuj punkt po wygenerowaniu labiryntu
+    setEnemyPosition({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
     setTimeout(() => {
-      setMysteryPoint(getRandomPosition());
+      const safePlayerPos = getRandomPosition();
+      setPlayer(safePlayerPos);
+      let safePointPos;
+      do {
+        safePointPos = getRandomPosition();
+      } while (safePointPos.x === safePlayerPos.x && safePointPos.y === safePlayerPos.y);
+      setMysteryPoint(safePointPos);
       setIsGameActive(true);
       setIsGameOver(false);
       setIsPlayerTurn(true);
-    }, 100);
+    }, 500); // Zwiększone opóźnienie dla pewności
   }, [getRandomPosition]);
 
   const handlePlayAgain = useCallback(() => {
     setTimeLeft(30);
     setScore(0);
     setPointsCollected(0);
-    setPlayer({ x: 1, y: 1 });
     setMazeKey(prev => prev + 1);
-    
-    // Generuj punkt po wygenerowaniu labiryntu
+    setEnemyPosition({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
     setTimeout(() => {
-      setMysteryPoint(getRandomPosition());
+      const safePlayerPos = getRandomPosition();
+      setPlayer(safePlayerPos);
+      let safePointPos;
+      do {
+        safePointPos = getRandomPosition();
+      } while (safePointPos.x === safePlayerPos.x && safePointPos.y === safePlayerPos.y);
+      setMysteryPoint(safePointPos);
       setIsGameOver(false);
       setIsGameActive(true);
       setIsPlayerTurn(true);
-    }, 100);
+    }, 500); // Zwiększone opóźnienie dla pewności
   }, [getRandomPosition]);
 
   return (
@@ -266,7 +259,6 @@ export default function OverlockedBreachPage() {
                 alignItems: 'center'
               }}
             >
-              {/* <div className="text-white text-xl">Generowanie nowego labiryntu...</div> */}
             </div>
           ) : (
             <GameBoard 
@@ -285,6 +277,8 @@ export default function OverlockedBreachPage() {
                   isGameActive={isGameActive && !isGameOver}
                   isPlayerTurn={isPlayerTurn}
                   onEnemyMoveComplete={handleEnemyMoveComplete}
+                  initialPosition={enemyPosition}
+                  onPositionUpdate={updateEnemyPosition}
                 />
               )}
             </GameBoard>
