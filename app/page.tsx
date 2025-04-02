@@ -10,6 +10,11 @@ import Enemy from './components/Enemy';
 
 const GRID_SIZE = 15;
 const DEFAULT_CELL_SIZE = 40;
+const MIN_START_DISTANCE_FROM_ENEMY = 5;
+
+const getManhattanDistance = (pos1: { x: number, y: number }, pos2: { x: number, y: number }): number => {
+  return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y);
+};
 
 export default function OverlockedBreachPage() {
   const [isLargeScreen, setIsLargeScreen] = useState(false);
@@ -29,6 +34,7 @@ export default function OverlockedBreachPage() {
   const [mazeKey, setMazeKey] = useState(0);
   const [enemyPosition, setEnemyPosition] = useState({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
   const [dynamicCellSize, setDynamicCellSize] = useState(DEFAULT_CELL_SIZE);
+  const [walls, setWalls] = useState(() => generateMaze());
 
   useEffect(() => {
     setIsClientSide(true);
@@ -51,41 +57,37 @@ export default function OverlockedBreachPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const walls = useMemo(() => {
-    if (!isClientSide) return [];
-    return generateMaze();
-  }, [isClientSide, mazeKey]);
-
-  const isColliding = useCallback((pos: { x: number, y: number }) => {
-    return walls.some(wall =>
+  const isPositionValid = (pos: { x: number, y: number }, walls: any[]) => {
+    if (pos.x < 0 || pos.x >= GRID_SIZE || pos.y < 0 || pos.y >= GRID_SIZE) {
+      return false;
+    }
+    return !walls.some(wall =>
       pos.x >= wall.x &&
       pos.x < wall.x + wall.w &&
       pos.y >= wall.y &&
       pos.y < wall.y + wall.h
     );
-  }, [walls]);
-
-  const updateEnemyPosition = useCallback((pos: { x: number, y: number }) => {
-    setEnemyPosition(pos);
-  }, []);
+  };
 
   const getRandomPosition = useCallback(() => {
     const availablePositions = [];
     for (let x = 1; x < GRID_SIZE - 1; x++) {
       for (let y = 1; y < GRID_SIZE - 1; y++) {
         const pos = { x, y };
-        if (!isColliding(pos)) {
+        if (isPositionValid(pos, walls)) {
           availablePositions.push(pos);
         }
       }
     }
     if (availablePositions.length === 0) {
-      console.warn("Nie znaleziono dostępnych pozycji!");
       return { x: 1, y: 1 };
     }
-    const randomIndex = Math.floor(Math.random() * availablePositions.length);
-    return availablePositions[randomIndex];
-  }, [isColliding]);
+    return availablePositions[Math.floor(Math.random() * availablePositions.length)];
+  }, [walls]);
+
+  const updateEnemyPosition = useCallback((pos: { x: number, y: number }) => {
+    setEnemyPosition(pos);
+  }, []);
 
   const handleGameLose = useCallback(() => {
     setIsGameOver(true);
@@ -102,17 +104,30 @@ export default function OverlockedBreachPage() {
     setPointsCollected(prev => prev + 1);
     setTimeLeft(prev => Math.min(prev + 5, 30));
     setIsTransitioning(true);
+
     setTimeout(() => {
+      const newWalls = generateMaze();
+
+      const currentPlayerPos = { ...player };
+      if (!isPositionValid(currentPlayerPos, newWalls)) {
+        const safePlayerPos = getRandomPosition();
+        setPlayer(safePlayerPos);
+      }
+
+      let safePointPos;
+      do {
+        safePointPos = getRandomPosition();
+      } while (
+        (safePointPos.x === player.x && safePointPos.y === player.y) ||
+        !isPositionValid(safePointPos, newWalls)
+      );
+
+      setMysteryPoint(safePointPos);
       setMazeKey(prev => prev + 1);
-      setTimeout(() => {
-        let safePointPos;
-        do {
-          safePointPos = getRandomPosition();
-        } while (safePointPos.x === player.x && safePointPos.y === player.y);
-        setMysteryPoint(safePointPos);
-        setIsTransitioning(false);
-        setIsPlayerTurn(true);
-      }, 500); // Zwiększone opóźnienie dla pewności
+      setWalls(newWalls);
+
+      setIsTransitioning(false);
+      setIsPlayerTurn(true);
     }, 1000);
   }, [getRandomPosition, player]);
 
@@ -147,7 +162,7 @@ export default function OverlockedBreachPage() {
           return prev;
       }
       setLastMoveDirection(direction);
-      const finalPos = isColliding(newPos) ? prev : newPos;
+      const finalPos = isPositionValid(newPos, walls) ? newPos : prev;
       if (finalPos.x !== prev.x || finalPos.y !== prev.y) {
         setIsPlayerTurn(false);
         if (finalPos.x === mysteryPoint.x && finalPos.y === mysteryPoint.y) {
@@ -156,7 +171,7 @@ export default function OverlockedBreachPage() {
       }
       return finalPos;
     });
-  }, [isGameActive, mysteryPoint, isColliding, isPlayerTurn, isTransitioning, handlePointCollected]);
+  }, [isGameActive, mysteryPoint, walls, isPlayerTurn, isTransitioning, handlePointCollected]);
 
   const handleDirectionalControl = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     if (!isPlayerTurn || isTransitioning) return;
@@ -198,20 +213,34 @@ export default function OverlockedBreachPage() {
     setScore(0);
     setPointsCollected(0);
     setMazeKey(prev => prev + 1);
-    setEnemyPosition({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
+    
+    const initialEnemyPos = { x: GRID_SIZE - 2, y: GRID_SIZE - 2 };
+    setEnemyPosition(initialEnemyPos);
+    
     setTimeout(() => {
-      const safePlayerPos = getRandomPosition();
+      // Get safe position away from enemy at game start
+      let safePlayerPos;
+      do {
+        safePlayerPos = getRandomPosition();
+      } while (
+        !isPositionValid(safePlayerPos, walls) || 
+        getManhattanDistance(safePlayerPos, initialEnemyPos) < MIN_START_DISTANCE_FROM_ENEMY
+      );
+      
       setPlayer(safePlayerPos);
+      
+      // Get mystery point position
       let safePointPos;
       do {
         safePointPos = getRandomPosition();
       } while (safePointPos.x === safePlayerPos.x && safePointPos.y === safePlayerPos.y);
+      
       setMysteryPoint(safePointPos);
       setIsGameActive(true);
       setIsGameOver(false);
       setIsPlayerTurn(true);
-    }, 500); // Zwiększone opóźnienie dla pewności
-  }, [getRandomPosition]);
+    }, 500);
+  }, [getRandomPosition, walls]);
 
   const handlePlayAgain = useCallback(() => {
     setTimeLeft(30);
@@ -230,7 +259,7 @@ export default function OverlockedBreachPage() {
       setIsGameOver(false);
       setIsGameActive(true);
       setIsPlayerTurn(true);
-    }, 500); // Zwiększone opóźnienie dla pewności
+    }, 500);
   }, [getRandomPosition]);
 
   return (
