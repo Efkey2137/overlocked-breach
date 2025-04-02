@@ -7,6 +7,7 @@ import GameOver from './components/GameOver';
 import GameBoard from './components/GameBoard';
 import DirectionalControls from './components/DirectionalControls';
 import Enemy from './components/Enemy';
+import Puzzle from './components/Puzzle';
 
 const GRID_SIZE = 15;
 const DEFAULT_CELL_SIZE = 40;
@@ -35,6 +36,10 @@ export default function OverlockedBreachPage() {
   const [enemyPosition, setEnemyPosition] = useState({ x: GRID_SIZE - 2, y: GRID_SIZE - 2 });
   const [dynamicCellSize, setDynamicCellSize] = useState(DEFAULT_CELL_SIZE);
   const [walls, setWalls] = useState(() => generateMaze());
+  const [isPuzzleActive, setIsPuzzleActive] = useState(false);
+  const [isPuzzleRequired, setIsPuzzleRequired] = useState(false);
+
+
 
   useEffect(() => {
     setIsClientSide(true);
@@ -93,13 +98,21 @@ export default function OverlockedBreachPage() {
     setIsGameOver(true);
     setIsGameActive(false);
     setGameOverReason('caught');
+    
+    // Resetuj stany zagadki
+    setIsPuzzleActive(false);
+    setIsPuzzleRequired(false);
   }, []);
+  
 
   const handleEnemyMoveComplete = useCallback(() => {
     setIsPlayerTurn(true);
   }, []);
 
   const handlePointCollected = useCallback(() => {
+    if (!isPuzzleActive) {
+      setIsPuzzleActive(true);
+    }
     setScore(prev => prev + 50);
     setPointsCollected(prev => prev + 1);
     setTimeLeft(prev => Math.min(prev + 5, 30));
@@ -131,8 +144,64 @@ export default function OverlockedBreachPage() {
     }, 1000);
   }, [getRandomPosition, player]);
 
+  const handlePuzzleSolved = useCallback(() => {
+    setIsPuzzleActive(false);
+    setIsPuzzleRequired(false); 
+    setScore(prev => prev + 50);
+    setPointsCollected(prev => prev + 1);
+    setTimeLeft(prev => Math.min(prev + 5, 30));
+    setIsTransitioning(true);
+  
+    setTimeout(() => {
+      const newWalls = generateMaze();
+  
+      const currentPlayerPos = { ...player };
+      if (!isPositionValid(currentPlayerPos, newWalls)) {
+        const safePlayerPos = getRandomPosition();
+        setPlayer(safePlayerPos);
+      }
+  
+      let safePointPos;
+      do {
+        safePointPos = getRandomPosition();
+      } while (
+        (safePointPos.x === player.x && safePointPos.y === player.y) ||
+        !isPositionValid(safePointPos, newWalls)
+      );
+  
+      setMysteryPoint(safePointPos);
+      setMazeKey(prev => prev + 1);
+      setWalls(newWalls);
+  
+      setIsTransitioning(false);
+      setIsPlayerTurn(true);
+    }, 1000);
+  }, [getRandomPosition, player, isPositionValid]);
+  
+  const handlePuzzleFailed = useCallback(() => {
+    setIsPuzzleActive(false);
+    // Nie resetujemy isPuzzleRequired, ponieważ gracz nadal musi rozwiązać zagadkę
+    setIsPlayerTurn(false);
+    
+    // Po ruchu przeciwnika, ponownie aktywuj zagadkę
+    // ALE nie generuj nowego labiryntu ani nie zmieniaj pozycji punktu
+    setTimeout(() => {
+      setIsPuzzleActive(true);
+    }, 1000); // Daj czas na ruch przeciwnika
+  }, []);
+  
+  const handlePuzzleTimeout = useCallback(() => {
+    // Podobnie jak w przypadku niepowodzenia
+    setIsPuzzleActive(false);
+    setIsPlayerTurn(false);
+    
+    setTimeout(() => {
+      setIsPuzzleActive(true);
+    }, 1000);
+  }, []);
+  
   const handleMovement = useCallback((e: KeyboardEvent) => {
-    if (!isGameActive || !isPlayerTurn || isTransitioning) return;
+    if (!isGameActive || !isPlayerTurn || isTransitioning || isPuzzleActive || isPuzzleRequired) return;
     const key = e.key.toLowerCase();
     setPlayer(prev => {
       const newPos = { ...prev };
@@ -171,7 +240,7 @@ export default function OverlockedBreachPage() {
       }
       return finalPos;
     });
-  }, [isGameActive, mysteryPoint, walls, isPlayerTurn, isTransitioning, handlePointCollected]);
+  }, [isGameActive, mysteryPoint, walls, isPlayerTurn, isTransitioning, isPuzzleActive, isPuzzleRequired, handlePointCollected]);
 
   const handleDirectionalControl = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     if (!isPlayerTurn || isTransitioning) return;
@@ -329,6 +398,13 @@ export default function OverlockedBreachPage() {
         onPlayAgain={handlePlayAgain}
         reason={gameOverReason}
       />
+      <Puzzle 
+      isActive={isPuzzleActive}
+      onSolve={handlePuzzleSolved}
+      onFail={handlePuzzleFailed}
+      onTimeout={handlePuzzleTimeout}
+      difficulty={Math.min(3, Math.ceil(pointsCollected / 3))} // Zwiększanie trudności z czasem
+    />
     </main>
   );
 }
