@@ -25,7 +25,7 @@ export default function OverlockedBreachPage() {
   const [player, setPlayer] = useState({ x: 1, y: 1 });
   const [mysteryPoint, setMysteryPoint] = useState(() => ({ x: 10, y: 10 }));
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(120);
   const [pointsCollected, setPointsCollected] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -115,7 +115,7 @@ export default function OverlockedBreachPage() {
     }
     setScore(prev => prev + 50);
     setPointsCollected(prev => prev + 1);
-    setTimeLeft(prev => Math.min(prev + 5, 30));
+    setTimeLeft(prev => Math.min(prev + 5, 120));
     setIsTransitioning(true);
 
     setTimeout(() => {
@@ -149,7 +149,7 @@ export default function OverlockedBreachPage() {
     setIsPuzzleRequired(false); 
     setScore(prev => prev + 50);
     setPointsCollected(prev => prev + 1);
-    setTimeLeft(prev => Math.min(prev + 5, 30));
+    setTimeLeft(prev => Math.min(prev + 5, 120));
     setIsTransitioning(true);
   
     setTimeout(() => {
@@ -278,7 +278,7 @@ export default function OverlockedBreachPage() {
 
   const handleStartGame = useCallback(() => {
     setShowInstructions(false);
-    setTimeLeft(30);
+    setTimeLeft(120);
     setScore(0);
     setPointsCollected(0);
     setMazeKey(prev => prev + 1);
@@ -312,7 +312,7 @@ export default function OverlockedBreachPage() {
   }, [getRandomPosition, walls]);
 
   const handlePlayAgain = useCallback(() => {
-    setTimeLeft(30);
+    setTimeLeft(120);
     setScore(0);
     setPointsCollected(0);
     setMazeKey(prev => prev + 1);
